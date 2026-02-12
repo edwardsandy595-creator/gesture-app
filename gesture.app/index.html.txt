@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Gesture Controller</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+
+<style>
+body{background:black;color:white;text-align:center;font-family:Arial;}
+video{border-radius:12px;}
+#status{font-size:30px;margin-top:15px;}
+</style>
+</head>
+
+<body>
+
+<h2>Gesture Controller</h2>
+
+<video id="webcam" width="400" autoplay playsinline></video>
+<div id="status">Loading model...</div>
+
+<audio id="player" controls autoplay loop>
+<source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3">
+</audio>
+
+<script>
+
+const MODEL_URL="./";
+
+let model, webcam;
+let lastGesture="";
+let cooldown=0;
+
+const statusText=document.getElementById("status");
+const player=document.getElementById("player");
+
+async function init(){
+model=await tmImage.load(MODEL_URL+"model.json",MODEL_URL+"metadata.json");
+
+webcam=new tmImage.Webcam(400,400,true);
+await webcam.setup();
+await webcam.play();
+
+document.getElementById("webcam").srcObject=webcam.webcam.srcObject;
+
+window.requestAnimationFrame(loop);
+}
+
+async function loop(){
+webcam.update();
+await predict();
+window.requestAnimationFrame(loop);
+}
+
+async function predict(){
+const prediction=await model.predict(webcam.canvas);
+let best=prediction.reduce((a,b)=>a.probability>b.probability?a:b);
+
+let gesture=best.className;
+let confidence=best.probability;
+
+if(confidence<0.9) gesture="No gesture";
+
+statusText.innerText=`Gesture: ${gesture} (${(confidence*100).toFixed(1)}%)`;
+
+if(cooldown>0){cooldown--;return;}
+if(gesture===lastGesture)return;
+
+lastGesture=gesture;
+cooldown=40;
+
+if(gesture==="Open Palm") player.play();
+if(gesture==="Fist") player.pause();
+}
+
+init();
+
+</script>
+</body>
+</html>
